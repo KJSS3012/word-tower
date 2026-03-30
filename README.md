@@ -4,68 +4,121 @@
 
 Word Tower e um jogo multiplayer de palavras em tempo real.
 
-O projeto utiliza arquitetura modular com frontend em Vue 3 + TypeScript e backend em Node.js + TypeScript, com comunicacao via Socket.IO.
+Esta versao consolida a migracao do backend de Python para Express + TypeScript e adota uma arquitetura modular em camadas, com comunicacao via Socket.IO.
 
 ## Visao Geral
 
-- Foco atual: organizacao em camadas (domain, rules, application, infrastructure, ws, types)
-- Frontend: `front`
-- Backend em TypeScript: `back_2` (estrutura temporaria de pasta)
+- Frontend em Vue 3 + TypeScript
+- Backend em Express + TypeScript
+- Comunicacao em tempo real com Socket.IO
+- Configuracoes de sala controladas pelo host
+- Fluxo multiplayer com eliminacao por tempo e validacao de palavras
+
+## Arquitetura
+
+Backend e frontend seguem uma organizacao modular semelhante:
+
+- `domain`: entidades e estado principal
+- `rules`: regras de negocio
+- `application`: orquestracao de casos de uso
+- `infrastructure`: acesso a dados/armazenamento e dicionario
+- `ws`: camada de eventos WebSocket
+- `types`: contratos e tipagens compartilhadas no modulo
 
 ## Estrutura Do Projeto
 
-- `back_2`: backend principal em Node.js + TypeScript
+- `back`: backend principal (Express + TypeScript)
 - `front`: cliente web (Vue 3 + TypeScript)
-- `back`: backend legado em Python (mantido para referencia)
 
 ## Requisitos
 
 - Node.js 20+
 - npm 10+
 
-## Como Executar
-
-1. Clone o repositorio.
+## Instalacao
 
 ```bash
 git clone https://github.com/KJSS3012/word-tower.git
 cd word-tower
+
+cd back
+npm install
+
+cd ../front
+npm install
 ```
 
-2. Instale e execute o backend.
+## Configuracao De Ambiente
+
+Backend (`back/.env`):
+
+```env
+PORT=3000
+NODE_ENV=development
+```
+
+Frontend (opcional):
+
+- `VITE_GAME_SERVER_URL` (padrao: `http://localhost:3000`)
+
+## Executando Em Desenvolvimento
+
+Em dois terminais separados:
 
 ```bash
-cd back_2
-npm install
+# Terminal 1
+cd back
 npm run dev
 ```
 
-3. Em outro terminal, instale e execute o frontend.
+```bash
+# Terminal 2
+cd front
+npm run dev
+```
+
+Aplicacao disponivel em `http://localhost:5173`.
+
+## Build De Producao
+
+Backend:
+
+```bash
+cd back
+npm run build
+npm run start
+```
+
+Frontend:
 
 ```bash
 cd front
-npm install
-npm run dev
+npm run build
+npm run preview
 ```
 
-4. Acesse a aplicacao.
+## Scripts Principais
 
-```text
-http://localhost:5173
-```
+### back
 
-## Portas Padrao
+- `npm run dev`: inicia o servidor em modo desenvolvimento
+- `npm run build`: compila TypeScript para `dist`
+- `npm run start`: executa o servidor compilado
 
-- Frontend: `5173`
-- Backend: `3000`
+### front
 
-Para alterar o endpoint no frontend, configure `VITE_GAME_SERVER_URL`.
+- `npm run dev`: inicia o cliente em desenvolvimento
+- `npm run type-check`: executa validacao de tipos
+- `npm run build`: gera build de producao
+- `npm run preview`: sobe o build localmente para validacao
 
 ## Regras Do Jogo
 
-- Cada nova palavra deve respeitar a letra exigida pela rodada.
-- A palavra deve existir no dicionario da dificuldade ativa.
+- A palavra enviada deve respeitar a letra exigida da rodada.
+- A palavra precisa existir no dicionario da dificuldade ativa.
 - Palavras repetidas nao sao aceitas.
+- Respostas invalidas aplicam penalidade no tempo restante do turno.
+- O jogo exige no minimo 2 jogadores para iniciar.
 
 ## Dificuldades
 
@@ -75,21 +128,8 @@ Para alterar o endpoint no frontend, configure `VITE_GAME_SERVER_URL`.
 | normal      | com acentos | ultima letra               |
 | caotic      | com acentos | letra aleatoria da palavra |
 
-## Scripts Principais
-
-`back_2`
-
-- `npm run dev`: inicia servidor em desenvolvimento
-- `npm run build`: compila o projeto TypeScript
-
-`front`
-
-- `npm run dev`: inicia cliente em desenvolvimento
-- `npm run type-check`: valida tipagem
-- `npm run build`: gera build de producao
-
 ## Contexto Academico
 
-Projeto academico desenvolvido para a disciplina de Programacao I (Ciencia da Computacao, UFCG).
+Projeto academico desenvolvido na disciplina de Programacao I (Ciencia da Computacao, UFCG).
 
-A versao 1.0, com backend em Python, foi o ponto inicial para a evolucao desta aplicacao.
+A versao 1.0 com backend em Python foi a base para a evolucao da versao atual.
