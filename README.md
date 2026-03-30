@@ -1,188 +1,135 @@
-# 🏗️ Word Tower
+# Word Tower
 
-**Jogo de palavras multijogador em tempo real com sistema de eliminação por timeout**
+![Version](https://img.shields.io/badge/version-2.0-2563eb)
 
-_Projeto desenvolvido para a disciplina de Programação I (Ciência da Computação - UFCG, Campina Grande)_
+Word Tower e um jogo multiplayer de palavras em tempo real.
 
----
+Esta versao consolida a migracao do backend de Python para Express + TypeScript e adota uma arquitetura modular em camadas, com comunicacao via Socket.IO.
 
-## 🚀 Como Rodar a Aplicação
+## Visao Geral
 
-### 📋 Pré-requisitos
+- Frontend em Vue 3 + TypeScript
+- Backend em Express + TypeScript
+- Comunicacao em tempo real com Socket.IO
+- Configuracoes de sala controladas pelo host
+- Fluxo multiplayer com eliminacao por tempo e validacao de palavras
 
-- **Python 3.8+** ([Download](https://www.python.org/downloads/))
-- **Node.js 20+** ([Download](https://nodejs.org/))
+## Arquitetura
 
-### 🛠️ Instalação
+Backend e frontend seguem uma organizacao modular semelhante:
 
-#### Opção 1: Instalação Simples (pip global)
+- `domain`: entidades e estado principal
+- `rules`: regras de negocio
+- `application`: orquestracao de casos de uso
+- `infrastructure`: acesso a dados/armazenamento e dicionario
+- `ws`: camada de eventos WebSocket
+- `types`: contratos e tipagens compartilhadas no modulo
+
+## Estrutura Do Projeto
+
+- `back`: backend principal (Express + TypeScript)
+- `front`: cliente web (Vue 3 + TypeScript)
+
+## Requisitos
+
+- Node.js 20+
+- npm 10+
+
+## Instalacao
 
 ```bash
-# 1. Clone o projeto
 git clone https://github.com/KJSS3012/word-tower.git
 cd word-tower
 
-# 2. Instalar dependências Python
 cd back
-pip install -r requirements.txt
+npm install
 
-# 3. Instalar dependências Node.js (novo terminal)
 cd ../front
 npm install
 ```
 
-#### Opção 2: Instalação com Ambiente Virtual (Recomendado)
+## Configuracao De Ambiente
 
-```bash
-# 1. Clone o projeto
-git clone https://github.com/KJSS3012/word-tower.git
-cd word-tower
+Backend (`back/.env`):
 
-# 2. Criar ambiente virtual
-cd back
-python -m venv venv
-
-# 3. Ativar ambiente virtual
-# Windows:
-venv\Scripts\activate
-# Linux/macOS:
-source venv/bin/activate
-
-# 4. Instalar dependências Python
-pip install -r requirements.txt
-
-# 5. Instalar dependências Node.js (novo terminal)
-cd ../front
-npm install
+```env
+PORT=3000
+NODE_ENV=development
 ```
 
-### ▶️ Executar
+Frontend (opcional):
 
-**Terminal 1 - Backend:**
+- `VITE_GAME_SERVER_URL` (padrao: `http://localhost:3000`)
+
+## Executando Em Desenvolvimento
+
+Em dois terminais separados:
 
 ```bash
+# Terminal 1
 cd back
-python -m app.main
+npm run dev
 ```
 
-> Backend rodará em `http://localhost:8000`
-
-**Terminal 2 - Frontend:**
-
 ```bash
+# Terminal 2
 cd front
 npm run dev
 ```
 
-> Frontend rodará em `http://localhost:5173`
+Aplicacao disponivel em `http://localhost:5173`.
 
-### 🌐 Acessar
+## Build De Producao
 
-Abra `http://localhost:5173` no navegador e divirta-se!
+Backend:
 
----
-
-## 🎮 Como Jogar
-
-### 🚪 Entrando no Jogo
-
-1. **Crie uma sala** ou **entre em uma existente** usando o código
-2. **Aguarde outros jogadores** (mínimo 2 para iniciar)
-3. **Host inicia o jogo** quando todos estiverem prontos
-
-### 🎯 Objetivo
-
-Formar uma "torre de palavras" onde cada palavra deve começar com a **última letra** da palavra anterior.
-
-### ⏰ Sistema de Tempo
-
-- **30 segundos** por turno (configurável)
-- **Timer visual** mostra tempo restante
-- **Eliminação automática** quando tempo esgota
-
-### 🏆 Vitória
-
-- **Último jogador ativo** vence a rodada
-- **Jogo reinicia** automaticamente para nova partida
-
----
-
-## 📝 Regras do Jogo
-
-### ✅ Palavra Válida
-
-- Deve começar com a **letra correta**
-- Deve ser uma **palavra real** (verificada no dicionário)
-- **Não pode repetir** palavras já usadas
-
-### ❌ Palavra Inválida
-
-- **Letra errada**: Eliminação imediata
-- **Palavra inexistente**: Eliminação imediata
-- **Palavra repetida**: Eliminação imediata
-
-### 🎲 Dificuldades
-
-| Dificuldade | Dicionário  | Próxima Letra     | Desafio |
-| ----------- | ----------- | ----------------- | ------- |
-| **Fácil**   | Sem acentos | Última letra      | ⭐      |
-| **Normal**  | Com acentos | Última letra      | ⭐⭐    |
-| **Caótico** | Com acentos | Posição aleatória | ⭐⭐⭐  |
-
----
-
-## 💻 Tecnologias
-
-### Backend
-
-- **Python 3.8+**: Linguagem principal
-- **Socket.IO**: Comunicação em tempo real
-- **uvicorn**: Servidor ASGI para WebSockets
-- **AsyncIO**: Programação assíncrona para timers
-
-### Frontend
-
-- **Vue 3**: Framework reativo moderno
-- **TypeScript**: Tipagem estática
-- **Pinia**: Gerenciamento de estado
-- **Socket.IO Client**: Comunicação real-time
-
-### Comunicação
-
-- **WebSocket**: Tempo real para gameplay
-- **JSON**: Formato de troca de dados
-
----
-
-## 📦 Dependências
-
-### Backend (Python)
-
-```txt
-uvicorn[standard]==0.24.0    # Servidor ASGI
-python-socketio[asyncio]==5.10.0    # Socket.IO server
+```bash
+cd back
+npm run build
+npm run start
 ```
 
-### Frontend (Node.js)
+Frontend:
 
-```json
-{
-  "vue": "^3.5.18",
-  "typescript": "latest",
-  "pinia": "^3.0.3",
-  "socket.io-client": "^4.8.1",
-  "vue-router": "^4.5.1"
-}
+```bash
+cd front
+npm run build
+npm run preview
 ```
 
----
+## Scripts Principais
 
-## 🎓 Créditos
+### back
 
-**Projeto Acadêmico**
+- `npm run dev`: inicia o servidor em modo desenvolvimento
+- `npm run build`: compila TypeScript para `dist`
+- `npm run start`: executa o servidor compilado
 
-- **Disciplina**: Programação I
-- **Instituição**: Universidade Federal de Campina Grande (UFCG)
-- **Curso**: Ciência da Computação
+### front
 
-**Word Tower** © 2025
+- `npm run dev`: inicia o cliente em desenvolvimento
+- `npm run type-check`: executa validacao de tipos
+- `npm run build`: gera build de producao
+- `npm run preview`: sobe o build localmente para validacao
+
+## Regras Do Jogo
+
+- A palavra enviada deve respeitar a letra exigida da rodada.
+- A palavra precisa existir no dicionario da dificuldade ativa.
+- Palavras repetidas nao sao aceitas.
+- Respostas invalidas aplicam penalidade no tempo restante do turno.
+- O jogo exige no minimo 2 jogadores para iniciar.
+
+## Dificuldades
+
+| Dificuldade | Dicionario  | Proxima Letra              |
+| ----------- | ----------- | -------------------------- |
+| easy        | sem acentos | ultima letra               |
+| normal      | com acentos | ultima letra               |
+| caotic      | com acentos | letra aleatoria da palavra |
+
+## Contexto Academico
+
+Projeto academico desenvolvido na disciplina de Programacao I (Ciencia da Computacao, UFCG).
+
+A versao 1.0 com backend em Python foi a base para a evolucao da versao atual.
