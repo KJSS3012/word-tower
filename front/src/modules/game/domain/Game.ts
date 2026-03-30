@@ -24,9 +24,17 @@ export class Game {
       currentWord,
       nextLetter,
       nextLetterIndex,
+      remainingTurnSeconds: snapshot.remainingTurnSeconds,
       currentPlayer,
       winnerPlayerId: snapshot.winnerPlayerId,
       winnerPlayerName: winnerPlayer?.name ?? "",
+      settings: {
+        turnTimeSeconds: snapshot.settings.turnTimeSeconds,
+        difficulty: snapshot.difficulty,
+        wrongAnswerPenalty: snapshot.settings.wrongAnswerPenalty,
+        maxPlayersEnabled: snapshot.settings.maxPlayersEnabled,
+        maxPlayers: snapshot.settings.maxPlayers,
+      },
     };
   }
 }

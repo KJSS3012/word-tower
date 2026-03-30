@@ -2,8 +2,10 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/gameStore'
+import { GameRules } from '@/modules/game/rules/GameRules'
 import GenericModal from '@/components/Modal/GenericModal.vue'
 import GenericSlider from '@/components/Slider/GenericSlider.vue'
+import GenericSwitch from '@/components/Inputs/GenericSwitch.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,7 +17,6 @@ const playerName = ref(localStorage.getItem('pendingPlayerName') || '')
 
 // Estado local da interface
 const inputWord = ref('')
-const selectedDifficulty = ref('normal')
 const showNameInput = ref(!playerName.value) // Só mostra se não tem nome salvo
 const messagesContainer = ref<HTMLElement | null>(null)
 const wordInput = ref<HTMLInputElement | null>(null)
@@ -25,19 +26,24 @@ const showGameSettings = ref(false)
 const gameTimeIndex = ref(3) // padrão 30s (índice 3 no array timeOptions)
 const timeOptions = ['10s', '15s', '20s', '30s', '45s', '60s']
 const difficultyIndex = ref(1) // padrão normal
-const difficultyOptions = ['Fácil', 'Normal', 'Difícil']
+const difficultyOptions = ['Fácil', 'Normal', 'Caótico']
+const wrongPenaltyIndex = ref(4) // padrão 5
+const wrongPenaltyOptions = ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s']
+const maxPlayersEnabled = ref(false)
+const maxPlayersIndex = ref(6) // padrão 8
+const maxPlayersOptions = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 
 // Computed properties
-const canSubmitWord = computed(() => 
-  gameStore.isConnected && 
-  gameStore.gameStarted && 
+const canSubmitWord = computed(() =>
+  gameStore.isConnected &&
+  gameStore.gameStarted &&
   inputWord.value.trim()
 )
 
 // Função para conectar após inserir o nome
 function connectToGame() {
   if (!playerName.value.trim()) return
-  
+
   gameStore.connect(gameId, playerName.value.trim())
   showNameInput.value = false
 }
@@ -45,7 +51,7 @@ function connectToGame() {
 // Função para enviar palavra
 function submitWord() {
   if (!canSubmitWord.value) return
-  
+
   gameStore.submitWord(inputWord.value)
   inputWord.value = ''
 }
@@ -55,30 +61,40 @@ function startGame() {
   gameStore.startNewGame()
 }
 
-// Função para alterar dificuldade
-function changeDifficulty() {
-  gameStore.changeDifficulty(selectedDifficulty.value)
-}
-
 // Função para voltar ao lobby
 function backToLobby() {
   gameStore.leaveGame()
   router.push('/')
 }
 
+function redirectToLobbyWithError(message: string) {
+  const lobbyMessage = message || 'Não foi possível entrar na sala.'
+  localStorage.removeItem('pendingPlayerName')
+  gameStore.leaveGame()
+  router.push({
+    name: 'start-screen',
+    query: {
+      error: lobbyMessage,
+    },
+  })
+}
+
 // Função para abrir configurações no jogo
 function openGameSettings() {
   // Sincronizar com as configurações atuais da sala
-  if (gameStore.roomSettings.defaultTime === 10) gameTimeIndex.value = 0
-  else if (gameStore.roomSettings.defaultTime === 15) gameTimeIndex.value = 1
-  else if (gameStore.roomSettings.defaultTime === 20) gameTimeIndex.value = 2
-  else if (gameStore.roomSettings.defaultTime === 30) gameTimeIndex.value = 3
-  else if (gameStore.roomSettings.defaultTime === 45) gameTimeIndex.value = 4
-  else if (gameStore.roomSettings.defaultTime === 60) gameTimeIndex.value = 5
+  const timeIndex = timeOptions.findIndex((value) => Number.parseInt(value.replace('s', '')) === gameStore.roomSettings.turnTimeSeconds)
+  gameTimeIndex.value = timeIndex >= 0 ? timeIndex : 3
 
-  if (gameStore.roomSettings.difficulty === 'fácil') difficultyIndex.value = 0
+  if (gameStore.roomSettings.difficulty === 'easy') difficultyIndex.value = 0
   else if (gameStore.roomSettings.difficulty === 'normal') difficultyIndex.value = 1
-  else if (gameStore.roomSettings.difficulty === 'difícil') difficultyIndex.value = 2
+  else difficultyIndex.value = 2
+
+  const penaltyIndex = wrongPenaltyOptions.findIndex((value) => Number.parseInt(value.replace('s', '')) === gameStore.roomSettings.wrongAnswerPenalty)
+  wrongPenaltyIndex.value = penaltyIndex >= 0 ? penaltyIndex : 4
+
+  maxPlayersEnabled.value = gameStore.roomSettings.maxPlayersEnabled
+  const maxIndex = maxPlayersOptions.findIndex((value) => Number.parseInt(value) === gameStore.roomSettings.maxPlayers)
+  maxPlayersIndex.value = maxIndex >= 0 ? maxIndex : 6
 
   showGameSettings.value = true
 }
@@ -87,37 +103,19 @@ function openGameSettings() {
 function saveGameSettings() {
   const selectedTimeString = timeOptions[gameTimeIndex.value]
   const selectedTime = parseInt(selectedTimeString.replace('s', ''))
-  const selectedDifficulty = difficultyOptions[difficultyIndex.value].toLowerCase()
-  
-  console.log('🔧 Salvando configurações:', {
-    gameTimeIndex: gameTimeIndex.value,
-    selectedTimeString,
-    selectedTime,
-    difficultyIndex: difficultyIndex.value,
-    selectedDifficulty,
-    currentSettings: gameStore.roomSettings
+  const difficultyMap = ['easy', 'normal', 'caotic'] as const
+  const selectedDifficulty = difficultyMap[difficultyIndex.value] ?? 'normal'
+  const selectedPenalty = parseInt(wrongPenaltyOptions[wrongPenaltyIndex.value].replace('s', ''), 10)
+  const selectedMaxPlayers = parseInt(maxPlayersOptions[maxPlayersIndex.value], 10)
+
+  gameStore.updateRoomSettings({
+    turnTimeSeconds: selectedTime,
+    difficulty: selectedDifficulty,
+    wrongAnswerPenalty: selectedPenalty,
+    maxPlayersEnabled: maxPlayersEnabled.value,
+    maxPlayers: selectedMaxPlayers,
   })
-  
-  // Mostrar feedback visual das alterações
-  const timeChanged = gameStore.roomSettings.defaultTime !== selectedTime
-  const difficultyChanged = gameStore.roomSettings.difficulty !== selectedDifficulty
-  
-  if (timeChanged || difficultyChanged) {
-    console.log('📝 Enviando alterações:', { defaultTime: selectedTime, difficulty: selectedDifficulty })
-    
-    gameStore.updateRoomSettings({
-      defaultTime: selectedTime,
-      difficulty: selectedDifficulty
-    })
-    
-    // Se o jogo está em andamento, avisar que as configurações serão aplicadas no próximo turno
-    if (gameStore.gameStarted) {
-      gameStore.addMessage('Sistema', '⚙️ Configurações serão aplicadas no próximo turno')
-    }
-  } else {
-    console.log('ℹ️ Nenhuma alteração detectada')
-  }
-  
+
   showGameSettings.value = false
 }
 
@@ -135,17 +133,22 @@ watch(() => gameStore.lastError, (newError) => {
   }
 })
 
+watch(() => gameStore.lastErrorCode, (errorCode) => {
+  if (!GameRules.shouldRedirectToLobbyOnError(errorCode)) return
+  redirectToLobbyWithError(gameStore.lastError)
+})
+
 // Lifecycle
 onMounted(() => {
   // Limpar estado ao montar
   gameStore.resetState()
-  
+
   // Se não tem gameId, volta para o lobby
   if (!gameId) {
     router.push('/')
     return
   }
-  
+
   // Se já tem nome do jogador, conecta automaticamente
   if (playerName.value.trim()) {
     connectToGame()
@@ -162,8 +165,8 @@ onUnmounted(() => {
 // Função para destacar a próxima letra
 function highlightNextLetter(word: string, index: number): string {
   if (!word || index < 0 || index >= word.length) return word
-  
-  return word.split('').map((char, i) => 
+
+  return word.split('').map((char, i) =>
     i === index ? `<mark style="background: #FFB107; color: #8A480F; padding: 2px 4px; border-radius: 3px; font-weight: bold;">${char}</mark>` : char
   ).join('')
 }
@@ -208,7 +211,7 @@ function filterLettersOnly(event: KeyboardEvent) {
   const isSpace = char === ' '
   const isControlKey = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Tab', 'Escape'].includes(char)
   const isModifierKey = event.ctrlKey || event.metaKey || event.altKey // Para Ctrl+A, Ctrl+C, Ctrl+V, etc
-  
+
   if (!isLetter && !isSpace && !isControlKey && !isModifierKey) {
     event.preventDefault()
   }
@@ -220,13 +223,13 @@ function handlePaste(event: ClipboardEvent) {
   const paste = event.clipboardData?.getData('text') || ''
   // Remove todos os caracteres que não são letras ou espaços
   const filteredText = paste.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1 ]/g, '')
-  
+
   // Atualiza o valor do input apenas com as letras e espaços válidos
   const currentValue = inputWord.value
   const input = event.target as HTMLInputElement
   const start = input.selectionStart || 0
   const end = input.selectionEnd || 0
-  
+
   const newValue = currentValue.slice(0, start) + filteredText + currentValue.slice(end)
   inputWord.value = newValue
 }
@@ -239,18 +242,13 @@ function handlePaste(event: ClipboardEvent) {
       <div class="logo-container">
         <img src="@/assets/images/logo/logo.png" class="game-logo" alt="Word Tower" draggable="false" />
       </div>
-      
+
       <div class="name-form">
         <h2>Sala: {{ gameId }}</h2>
         <div class="form-group">
           <label>Digite seu nome:</label>
-          <input 
-            v-model="playerName" 
-            type="text" 
-            placeholder="Ex: João" 
-            @keyup.enter="connectToGame"
-            class="name-input"
-          />
+          <input v-model="playerName" type="text" placeholder="Ex: João" @keyup.enter="connectToGame"
+            class="name-input" />
         </div>
         <button @click="connectToGame" :disabled="!playerName.trim()" class="btn-connect">
           Entrar no Jogo
@@ -268,7 +266,8 @@ function handlePaste(event: ClipboardEvent) {
         </div>
         <div class="header-right">
           <!-- Botão de configurações (apenas para host) -->
-          <button v-if="gameStore.amIHost" @click="openGameSettings" class="btn-settings">
+          <button v-if="gameStore.amIHost" @click="openGameSettings" :disabled="gameStore.gameStarted"
+            class="btn-settings">
             ⚙️
           </button>
           <button @click="backToLobby" class="btn-back">Sair</button>
@@ -282,18 +281,33 @@ function handlePaste(event: ClipboardEvent) {
       </div>
 
       <!-- Modal de Configurações do Jogo (apenas para host) -->
-      <GenericModal v-model:open="showGameSettings" title="Configurações da Sala" background-color="#C7721E" border-color="#8A480F">
-        <div class="settings-content">
-          <div class="setting-time">
-            <p>Tempo de Turno</p>
-            <GenericSlider v-model="gameTimeIndex" :values="timeOptions" />
-          </div>
-          <div class="setting-difficulty">
-            <p>Dificuldade</p>
-            <GenericSlider v-model="difficultyIndex" :values="difficultyOptions" />
-          </div>
-          <div class="settings-actions">
-            <button @click="saveGameSettings" class="btn-save-settings">Salvar</button>
+      <GenericModal v-model:open="showGameSettings" title="Configurações da Sala" background-color="#C7721E"
+        border-color="#8A480F">
+        <div class="settings-scroll">
+          <div class="settings-content">
+            <div class="settings-core">
+              <div class="setting-time">
+                <p>Tempo de Turno</p>
+                <GenericSlider v-model="gameTimeIndex" :values="timeOptions" />
+              </div>
+              <div class="setting-difficulty">
+                <p>Dificuldade</p>
+                <GenericSlider v-model="difficultyIndex" :values="difficultyOptions" />
+              </div>
+              <div class="setting-difficulty">
+                <p>Penalidade por Erro</p>
+                <GenericSlider v-model="wrongPenaltyIndex" :values="wrongPenaltyOptions" />
+              </div>
+            </div>
+            <div class="setting-difficulty">
+              <p>Limitar Jogadores</p>
+              <GenericSwitch v-model="maxPlayersEnabled" width="4rem" background-color="#FEE793" checked-color="#FFB107"
+                border-color="#96550B" />
+              <GenericSlider v-model="maxPlayersIndex" :values="maxPlayersOptions" :disabled="!maxPlayersEnabled" />
+            </div>
+            <div class="settings-actions">
+              <button @click="saveGameSettings" class="btn-save-settings">Salvar</button>
+            </div>
           </div>
         </div>
       </GenericModal>
@@ -305,25 +319,23 @@ function handlePaste(event: ClipboardEvent) {
           <div class="players-compact">
             <span class="players-count">👥 {{ gameStore.players.length }} jogadores</span>
             <div class="players-list">
-              <span v-for="player in gameStore.players" :key="player.id" 
-                    class="player-tag" 
-                    :class="{ 
-                      'current-player': gameStore.currentPlayer && player.id === gameStore.currentPlayer.id,
-                      'eliminated': !player.is_active,
-                      'is-host': player.is_host,
-                      'is-me': player.id === gameStore.myPlayerId
-                    }">
+              <span v-for="player in gameStore.players" :key="player.id" class="player-tag" :class="{
+                'current-player': gameStore.currentPlayer && player.id === gameStore.currentPlayer.id,
+                'eliminated': !player.is_active,
+                'is-host': player.is_host,
+                'is-me': player.id === gameStore.myPlayerId
+              }">
                 {{ player.name }}
                 <span v-if="player.is_host">👑</span>
               </span>
             </div>
           </div>
-          
+
           <!-- Timer mais limpo -->
           <div v-if="gameStore.gameStarted && gameStore.timerActive" class="timer-clean">
-            <div class="timer-circle" :class="{ 
+            <div class="timer-circle" :class="{
               'timer-warning': gameStore.remainingTime <= 10 && gameStore.remainingTime > 5,
-              'timer-critical': gameStore.remainingTime <= 5 
+              'timer-critical': gameStore.remainingTime <= 5
             }">
               {{ gameStore.remainingTime }}s
             </div>
@@ -336,15 +348,16 @@ function handlePaste(event: ClipboardEvent) {
         <!-- Controles do jogo (mais simples) -->
         <div v-if="!gameStore.gameStarted" class="game-start-area">
           <div v-if="gameStore.amIHost" class="host-controls">
-            <button @click="startGame" :disabled="!gameStore.isConnected || gameStore.players.length < 1" class="btn-start-clean">
+            <button @click="startGame" :disabled="!gameStore.isConnected || gameStore.players.length < 2"
+              class="btn-start-clean">
               🚀 Iniciar Jogo
             </button>
-            <p class="start-hint">Configure a sala usando o botão ⚙️ no canto superior direito</p>
+            <p class="start-hint">Configure a sala no botão ⚙️. O jogo exige no mínimo 2 jogadores.</p>
           </div>
           <div v-else class="waiting-host">
             <p>⏳ Aguardando o host iniciar o jogo...</p>
             <p v-if="gameStore.players.find((p: any) => p.is_host)" class="host-info">
-              Host: <strong>{{ gameStore.players.find((p: any) => p.is_host)?.name }}</strong>
+              Host: <strong>{{gameStore.players.find((p: any) => p.is_host)?.name}}</strong>
             </p>
           </div>
         </div>
@@ -368,7 +381,8 @@ function handlePaste(event: ClipboardEvent) {
         <div class="word-card">
           <div class="current-word-section">
             <span class="word-label">Palavra atual:</span>
-            <div class="current-word" v-html="highlightNextLetter(gameStore.currentWord, gameStore.nextLetterIndex)"></div>
+            <div class="current-word" v-html="highlightNextLetter(gameStore.currentWord, gameStore.nextLetterIndex)">
+            </div>
           </div>
           <div class="next-letter-section">
             <span class="next-label">Próxima deve começar com:</span>
@@ -379,23 +393,15 @@ function handlePaste(event: ClipboardEvent) {
         <!-- Input area mais clean -->
         <div v-if="gameStore.isMyTurn" class="input-area">
           <div class="input-group">
-            <input 
-              ref="wordInput"
-              v-model="inputWord" 
-              type="text" 
-              placeholder="Digite sua palavra..."
-              @keydown="filterLettersOnly"
-              @paste="handlePaste"
-              @keyup.enter="submitWord"
-              :disabled="!gameStore.isConnected || !gameStore.isMyTurn"
-              class="word-input-clean"
-            />
+            <input ref="wordInput" v-model="inputWord" type="text" placeholder="Digite sua palavra..."
+              @keydown="filterLettersOnly" @paste="handlePaste" @keyup.enter="submitWord"
+              :disabled="!gameStore.isConnected || !gameStore.isMyTurn" class="word-input-clean" />
             <button @click="submitWord" :disabled="!canSubmitWord || !gameStore.isMyTurn" class="btn-submit-clean">
               Enviar
             </button>
           </div>
         </div>
-        
+
         <!-- Mensagem de aguardo mais destacada -->
         <div v-if="!gameStore.isMyTurn" class="waiting-turn-highlight">
           <div class="waiting-icon">⏳</div>
@@ -408,25 +414,25 @@ function handlePaste(event: ClipboardEvent) {
         </div>
       </div>
 
-        <!-- Log de ações (mais simples) -->
-        <div class="game-log">
-          <h4>� Histórico</h4>
-          <div ref="messagesContainer" class="log-container">
-            <div v-for="message in gameStore.messages.slice(-10)" :key="message.id" 
-                 class="log-entry" :class="{ 'system': message.sender === 'Sistema' }">
-              <span class="log-time">{{ message.timestamp.split(' ')[1] }}</span>
-              <span class="log-content">
-                <strong v-if="message.sender !== 'Sistema'">{{ message.sender }}:</strong>
-                {{ message.content }}
-              </span>
-            </div>
+      <!-- Log de ações (mais simples) -->
+      <div class="game-log">
+        <h4>Historico</h4>
+        <div ref="messagesContainer" class="log-container">
+          <div v-for="message in gameStore.messages.slice(-10)" :key="message.id" class="log-entry"
+            :class="{ 'system': message.sender === 'Sistema' }">
+            <span class="log-time">{{ message.timestamp.split(' ')[1] }}</span>
+            <span class="log-content">
+              <strong v-if="message.sender !== 'Sistema'">{{ message.sender }}:</strong>
+              {{ message.content }}
+            </span>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Background -->
-    <div class="page-background"></div>
+  <!-- Background -->
+  <div class="page-background"></div>
 </template>
 
 <style scoped>
@@ -457,6 +463,35 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 /* Configurações Modal */
+.settings-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: #96550B #FAD280;
+}
+
+.settings-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-scroll::-webkit-scrollbar-track {
+  background: #FAD280;
+  border-radius: 0.3rem;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb {
+  background: #96550B;
+  border-radius: 0.3rem;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb:hover {
+  background: #8A480F;
+}
+
 .settings-content {
   padding: 1rem;
   text-align: center;
@@ -466,7 +501,16 @@ function handlePaste(event: ClipboardEvent) {
   gap: 1rem;
   justify-content: center;
   align-items: center;
-  width: 90%;
+  width: 100%;
+  max-width: 720px;
+}
+
+.settings-core {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
 }
 
 .setting-time,
@@ -476,6 +520,7 @@ function handlePaste(event: ClipboardEvent) {
   border: 3px solid #96550B;
   border-radius: 0.5rem;
   width: 100%;
+  max-width: 620px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -612,9 +657,17 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .current-turn {
@@ -697,14 +750,16 @@ function handlePaste(event: ClipboardEvent) {
   gap: 1rem;
 }
 
-.current-word-section, .next-letter-section {
+.current-word-section,
+.next-letter-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
 }
 
-.word-label, .next-label {
+.word-label,
+.next-label {
   font-size: 0.9rem;
   color: #502405;
   font-weight: bold;
@@ -803,13 +858,25 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse-waiting {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
 }
 
 .waiting-text h3 {
@@ -1033,6 +1100,13 @@ function handlePaste(event: ClipboardEvent) {
 .btn-settings:hover {
   transform: translateY(1px);
   box-shadow: 0 1px 0 0 #96550B;
+}
+
+.btn-settings:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 0 0 #96550B;
 }
 
 .btn-back {
@@ -1285,13 +1359,29 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 @keyframes pulse-warning {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 @keyframes pulse-critical {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.8; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
 }
 
 /* Victory Overlay Styles */
@@ -1354,19 +1444,44 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideIn {
-  from { transform: translateY(-50px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes bounce {
-  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-10px); }
-  60% { transform: translateY(-5px); }
+
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-10px);
+  }
+
+  60% {
+    transform: translateY(-5px);
+  }
 }
 
 .host-only-message {
@@ -1388,9 +1503,17 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 .control-row {
@@ -1556,7 +1679,7 @@ function handlePaste(event: ClipboardEvent) {
   border: 0.15rem solid #96550B;
   border-radius: 0.3rem;
   padding: 1rem;
-  
+
   /* Custom scrollbar */
   scrollbar-width: thin;
   scrollbar-color: #96550B #FAD280;
@@ -1662,7 +1785,7 @@ function handlePaste(event: ClipboardEvent) {
   min-width: 300px;
   font-family: 'Tomo Bossa Black', Arial, sans-serif;
   font-weight: bold;
-  
+
   /* Animação de entrada */
   animation: slideInFromRight 0.3s ease-out;
 }
@@ -1672,6 +1795,7 @@ function handlePaste(event: ClipboardEvent) {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -1688,6 +1812,7 @@ function handlePaste(event: ClipboardEvent) {
     transform: translateX(0);
     opacity: 1;
   }
+
   to {
     transform: translateX(100%);
     opacity: 0;
@@ -1755,21 +1880,21 @@ function handlePaste(event: ClipboardEvent) {
   .game-interface {
     padding: 0.5rem;
   }
-  
+
   .game-header {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
   }
-  
+
   .players-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .word-input-container {
     flex-direction: column;
   }
-  
+
   .game-logo {
     width: 15rem;
   }
@@ -1788,6 +1913,7 @@ function handlePaste(event: ClipboardEvent) {
       transform: translateY(-100%);
       opacity: 0;
     }
+
     to {
       transform: translateY(0);
       opacity: 1;
@@ -1799,6 +1925,7 @@ function handlePaste(event: ClipboardEvent) {
       transform: translateY(0);
       opacity: 1;
     }
+
     to {
       transform: translateY(-100%);
       opacity: 0;

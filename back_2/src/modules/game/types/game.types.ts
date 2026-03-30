@@ -23,15 +23,24 @@ export interface PlayerDTO {
   isHost: boolean;
 }
 
+export interface GameSettings {
+  turnTimeSeconds: number;
+  wrongAnswerPenalty: number;
+  maxPlayersEnabled: boolean;
+  maxPlayers: number;
+}
+
 export interface GameSnapshot {
   gameId: string;
   difficulty: Difficulty;
   status: GameStatus;
   currentWord: string | null;
   requiredLetter: string | null;
+  remainingTurnSeconds: number;
   currentTurnIndex: number;
   currentPlayerId: string | null;
   winnerPlayerId: string | null;
+  settings: GameSettings;
   players: PlayerDTO[];
 }
 
@@ -51,5 +60,19 @@ export interface StartGameResult {
 export interface SubmitWordResult {
   success: boolean;
   reason?: SubmitWordErrorReason;
+  game?: GameSnapshot;
+}
+
+export interface UpdateSettingsPayload {
+  turnTimeSeconds?: number;
+  difficulty?: Difficulty;
+  wrongAnswerPenalty?: number;
+  maxPlayersEnabled?: boolean;
+  maxPlayers?: number;
+}
+
+export interface UpdateSettingsResult {
+  success: boolean;
+  reason?: string;
   game?: GameSnapshot;
 }

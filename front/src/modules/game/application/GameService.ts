@@ -1,6 +1,5 @@
 import { Socket } from "socket.io-client";
 import { Game } from "../domain/Game";
-import { GameRules } from "../rules/GameRules";
 import { DictionaryService } from "../infrastructure/dictionary/DictionaryService";
 import { GameStore } from "../infrastructure/store/GameStore";
 import { GameHandler } from "../ws/game.handler";
@@ -12,6 +11,8 @@ import type {
   StartResult,
   SubmitPayload,
   SubmitResult,
+  UpdateSettingsPayload,
+  UpdateSettingsResult,
 } from "../types/game.types";
 
 interface GameServiceCallbacks {
@@ -21,6 +22,8 @@ interface GameServiceCallbacks {
   onJoin: (result: JoinResult) => void;
   onStart: (result: StartResult) => void;
   onSubmit: (result: SubmitResult) => void;
+  onSettingsUpdated: (result: UpdateSettingsResult) => void;
+  onRoomClosed: () => void;
   onError: (message: string) => void;
 }
 
@@ -81,9 +84,18 @@ export class GameService {
       callbacks.onSubmit(result);
       if (result.game) {
         this.applySnapshot(result.game, callbacks.onState);
-      } else if (!result.success) {
-        callbacks.onError(GameRules.toErrorMessage(result.reason));
       }
+    });
+
+    socket.on("game:settings:result", (result: UpdateSettingsResult) => {
+      callbacks.onSettingsUpdated(result);
+      if (result.game) {
+        this.applySnapshot(result.game, callbacks.onState);
+      }
+    });
+
+    socket.on("game:room:closed", () => {
+      callbacks.onRoomClosed();
     });
   }
 
@@ -98,6 +110,10 @@ export class GameService {
       word,
     };
     this.gameHandler.emitSubmit(payload);
+  }
+
+  updateSettings(gameId: string, settings: UpdateSettingsPayload): void {
+    this.gameHandler.emitSettingsUpdate(gameId, settings);
   }
 
   leaveGame(): void {

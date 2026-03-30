@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-import type { JoinPayload, SubmitPayload } from "../types/game.types";
+import type { JoinPayload, SubmitPayload, UpdateSettingsPayload } from "../types/game.types";
 
 export class GameHandler {
   private socket: Socket | null = null;
@@ -28,6 +28,10 @@ export class GameHandler {
 
   emitSubmit(payload: SubmitPayload): void {
     this.socket?.emit("game:submit", payload);
+  }
+
+  emitSettingsUpdate(gameId: string, settings: UpdateSettingsPayload): void {
+    this.socket?.emit("game:settings:update", { gameId, settings });
   }
 
   emitLeave(): void {

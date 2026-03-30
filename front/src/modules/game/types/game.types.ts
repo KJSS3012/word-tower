@@ -15,15 +15,24 @@ export interface PlayerDTO {
   isHost: boolean;
 }
 
+export interface GameSettings {
+  turnTimeSeconds: number;
+  wrongAnswerPenalty: number;
+  maxPlayersEnabled: boolean;
+  maxPlayers: number;
+}
+
 export interface GameSnapshot {
   gameId: string;
   difficulty: Difficulty;
   status: "WAITING" | "IN_PROGRESS" | "FINISHED";
   currentWord: string | null;
   requiredLetter: string | null;
+  remainingTurnSeconds: number;
   currentTurnIndex: number;
   currentPlayerId: string | null;
   winnerPlayerId: string | null;
+  settings: GameSettings;
   players: PlayerDTO[];
 }
 
@@ -59,6 +68,20 @@ export interface SubmitResult {
   game?: GameSnapshot | null;
 }
 
+export interface UpdateSettingsPayload {
+  turnTimeSeconds?: number;
+  difficulty?: Difficulty;
+  wrongAnswerPenalty?: number;
+  maxPlayersEnabled?: boolean;
+  maxPlayers?: number;
+}
+
+export interface UpdateSettingsResult {
+  success: boolean;
+  reason?: string;
+  game?: GameSnapshot | null;
+}
+
 export interface PlayerView {
   id: string;
   name: string;
@@ -75,8 +98,11 @@ export interface GameMessage {
 }
 
 export interface RoomSettings {
-  defaultTime: number;
-  difficulty: string;
+  turnTimeSeconds: number;
+  difficulty: Difficulty;
+  wrongAnswerPenalty: number;
+  maxPlayersEnabled: boolean;
+  maxPlayers: number;
 }
 
 export interface FrontGameState {
@@ -87,7 +113,9 @@ export interface FrontGameState {
   currentWord: string;
   nextLetter: string;
   nextLetterIndex: number;
+  remainingTurnSeconds: number;
   currentPlayer: PlayerView | null;
   winnerPlayerId: string | null;
   winnerPlayerName: string;
+  settings: RoomSettings;
 }

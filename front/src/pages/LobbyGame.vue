@@ -3,12 +3,15 @@ import GenericButton from '@/components/Buttons/GenericButton.vue';
 import GenericInput from '@/components/Inputs/GenericInput.vue'
 import GenericLabel from '@/components/Labels/GenericLabel.vue'
 import { Play } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import router from '@/router';
+import { useRoute } from 'vue-router';
 
 const showStartScreen = ref(true)
 const showGameLobby = ref(false)
 const isLogoMoving = ref(false)
+const lobbyError = ref('')
+const route = useRoute()
 
 const startGame = () => {
   const startOverlay = document.querySelector('.start-overlay');
@@ -54,6 +57,23 @@ const startGameRoom = () => {
     params: { gameId: roomId }
   });
 }
+
+const clearLobbyError = () => {
+  lobbyError.value = ''
+  router.replace({ name: 'start-screen' })
+}
+
+onMounted(() => {
+  const routeError = route.query.error
+  const parsedError = Array.isArray(routeError) ? routeError[0] : routeError
+
+  if (!parsedError) return
+
+  lobbyError.value = parsedError
+  showStartScreen.value = false
+  isLogoMoving.value = true
+  showGameLobby.value = true
+})
 </script>
 
 <template>
@@ -81,6 +101,10 @@ const startGameRoom = () => {
   <!-- Lobby do jogo -->
   <div v-if="showGameLobby" class="game-lobby">
     <div class="lobby-form">
+      <div v-if="lobbyError" class="lobby-error">
+        <span>{{ lobbyError }}</span>
+        <button class="lobby-error-close" @click="clearLobbyError">✕</button>
+      </div>
       <div class="form-group">
         <GenericLabel position="start" font-size="1rem" color="#502405">Nome do Jogador</GenericLabel>
         <GenericInput type="text" background-color="#FEE793" border-color="#96550B" placeholder="Digite seu nome"
@@ -218,6 +242,29 @@ const startGameRoom = () => {
   gap: 0.5rem;
   width: 100%;
   min-width: 15rem;
+}
+
+.lobby-error {
+  width: 100%;
+  background-color: #ffe4c2;
+  border: 2px solid #c0392b;
+  color: #8a1e12;
+  border-radius: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-size: 0.95rem;
+}
+
+.lobby-error-close {
+  border: none;
+  background: transparent;
+  color: #8a1e12;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
 }
 
 .settings-content {

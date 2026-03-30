@@ -2,20 +2,18 @@ import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { Socket } from "socket.io-client";
 import { GameService } from "@/modules/game/application/GameService";
-import { TimerService } from "@/modules/game/application/TimerService";
 import { TurnService } from "@/modules/game/application/TurnService";
 import { GameRules } from "@/modules/game/rules/GameRules";
 import { DictionaryService } from "@/modules/game/infrastructure/dictionary/DictionaryService";
 import { GameStore as InternalGameStore } from "@/modules/game/infrastructure/store/GameStore";
 import { GameHandler } from "@/modules/game/ws/game.handler";
-import type { Difficulty, GameMessage, PlayerView } from "@/modules/game/types/game.types";
+import type { Difficulty, GameMessage, PlayerView, RoomSettings } from "@/modules/game/types/game.types";
 
 const gameHandler = new GameHandler();
 const internalGameStore = new InternalGameStore();
 const dictionaryService = new DictionaryService();
 const gameService = new GameService(internalGameStore, dictionaryService, gameHandler);
 const turnService = new TurnService();
-const timerService = new TimerService();
 
 const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL ?? "http://localhost:3000";
 
@@ -35,9 +33,12 @@ export const useGameStore = defineStore("game", () => {
   const myPlayerId = ref("");
   const hostId = ref("");
 
-  const roomSettings = ref({
-    defaultTime: 30,
+  const roomSettings = ref<RoomSettings>({
+    turnTimeSeconds: 30,
     difficulty: "normal",
+    wrongAnswerPenalty: 5,
+    maxPlayersEnabled: false,
+    maxPlayers: 8,
   });
 
   const remainingTime = ref(0);
@@ -47,6 +48,7 @@ export const useGameStore = defineStore("game", () => {
 
   const messages = ref<GameMessage[]>([]);
   const lastError = ref("");
+  const lastErrorCode = ref("");
 
   const isConnected = computed(() => connected.value && socket.value?.disconnected === false);
   const isMyTurn = computed(() => {
@@ -73,7 +75,7 @@ export const useGameStore = defineStore("game", () => {
     playerName.value = playerNameParam.trim();
     localStorage.removeItem("pendingPlayerName");
 
-    const initialDifficulty: Difficulty = GameRules.displayDifficultyToCode(roomSettings.value.difficulty);
+    const initialDifficulty: Difficulty = roomSettings.value.difficulty;
 
     gameService.connect(
       GAME_SERVER_URL,
@@ -97,7 +99,16 @@ export const useGameStore = defineStore("game", () => {
           nextLetter.value = state.nextLetter;
           nextLetterIndex.value = state.nextLetterIndex;
           difficulty.value = state.difficulty;
+          roomSettings.value = {
+            turnTimeSeconds: state.settings.turnTimeSeconds,
+            difficulty: state.settings.difficulty,
+            wrongAnswerPenalty: state.settings.wrongAnswerPenalty,
+            maxPlayersEnabled: state.settings.maxPlayersEnabled,
+            maxPlayers: state.settings.maxPlayers,
+          };
           gameStarted.value = state.gameStarted;
+          remainingTime.value = state.remainingTurnSeconds;
+          timerActive.value = state.gameStarted;
           currentPlayer.value = turnService.findCurrentPlayer(
             state.players,
             state.currentPlayer?.id ?? null,
@@ -113,16 +124,14 @@ export const useGameStore = defineStore("game", () => {
             winner.value = "";
           }
 
-          if (gameStarted.value) {
-            restartTurnTimer();
-          } else {
+          if (!gameStarted.value) {
             stopTimer();
           }
         },
         onJoin: (result) => {
           if (!result.success || !result.player) {
             const reason = result.reason || "Falha ao entrar na sala.";
-            setError(reason);
+            setError(GameRules.toJoinErrorMessage(reason), reason);
             return;
           }
 
@@ -131,7 +140,7 @@ export const useGameStore = defineStore("game", () => {
         },
         onStart: (result) => {
           if (!result.success) {
-            setError(result.reason || "Nao foi possivel iniciar o jogo.");
+            setError(GameRules.toStartErrorMessage(result.reason), result.reason);
             return;
           }
 
@@ -139,11 +148,24 @@ export const useGameStore = defineStore("game", () => {
         },
         onSubmit: (result) => {
           if (!result.success) {
-            setError(GameRules.toErrorMessage(result.reason));
+            setError(GameRules.toErrorMessage(result.reason), result.reason);
             return;
           }
 
           addMessage("Sistema", "Jogada aceita.");
+        },
+        onSettingsUpdated: (result) => {
+          if (!result.success) {
+            setError(GameRules.toSettingsErrorMessage(result.reason), result.reason);
+            return;
+          }
+
+          addMessage("Sistema", "Configuracoes da sala atualizadas.");
+        },
+        onRoomClosed: () => {
+          setError("A sala foi encerrada.", "ROOM_CLOSED");
+          connected.value = false;
+          gameService.disconnect();
         },
         onError: (message) => {
           setError(message);
@@ -165,26 +187,23 @@ export const useGameStore = defineStore("game", () => {
   }
 
   function changeDifficulty(newDifficulty: string): void {
-    roomSettings.value.difficulty = newDifficulty;
-    difficulty.value = GameRules.displayDifficultyToCode(newDifficulty);
-    addMessage("Sistema", `Dificuldade local definida para ${newDifficulty}.`);
+    updateRoomSettings({
+      difficulty: GameRules.displayDifficultyToCode(newDifficulty),
+    });
   }
 
-  function updateRoomSettings(settings: { defaultTime?: number; difficulty?: string }): void {
-    if (typeof settings.defaultTime === "number") {
-      roomSettings.value.defaultTime = settings.defaultTime;
+  function updateRoomSettings(settings: Partial<RoomSettings>): void {
+    if (!gameId.value || !connected.value) {
+      setError("Conecte-se a uma sala antes de alterar configuracoes.");
+      return;
     }
 
-    if (typeof settings.difficulty === "string") {
-      roomSettings.value.difficulty = settings.difficulty;
-      difficulty.value = GameRules.displayDifficultyToCode(settings.difficulty);
+    if (!amIHost.value) {
+      setError("Apenas o host pode alterar as configuracoes da sala.");
+      return;
     }
 
-    addMessage("Sistema", "Configuracoes aplicadas localmente.");
-
-    if (gameStarted.value) {
-      restartTurnTimer();
-    }
+    gameService.updateSettings(gameId.value, settings);
   }
 
   function leaveGame(): void {
@@ -208,11 +227,15 @@ export const useGameStore = defineStore("game", () => {
     hostId.value = "";
     messages.value = [];
     lastError.value = "";
+    lastErrorCode.value = "";
     isVictoryState.value = false;
     winner.value = "";
     roomSettings.value = {
-      defaultTime: 30,
+      turnTimeSeconds: 30,
       difficulty: "normal",
+      wrongAnswerPenalty: 5,
+      maxPlayersEnabled: false,
+      maxPlayers: 8,
     };
     stopTimer();
     socket.value = null;
@@ -229,10 +252,12 @@ export const useGameStore = defineStore("game", () => {
 
   function clearError(): void {
     lastError.value = "";
+    lastErrorCode.value = "";
   }
 
-  function setError(message: string): void {
+  function setError(message: string, code?: string): void {
     lastError.value = message;
+    lastErrorCode.value = code ?? "";
     addMessage("Erro", message);
   }
 
@@ -241,21 +266,7 @@ export const useGameStore = defineStore("game", () => {
     hostId.value = hostPlayer?.id ?? "";
   }
 
-  function restartTurnTimer(): void {
-    timerActive.value = true;
-    timerService.start(
-      roomSettings.value.defaultTime,
-      (remaining) => {
-        remainingTime.value = remaining;
-      },
-      () => {
-        timerActive.value = false;
-      },
-    );
-  }
-
   function stopTimer(): void {
-    timerService.stop();
     timerActive.value = false;
     remainingTime.value = 0;
   }
@@ -276,6 +287,7 @@ export const useGameStore = defineStore("game", () => {
     hostId,
     messages,
     lastError,
+    lastErrorCode,
     roomSettings,
     remainingTime,
     timerActive,
