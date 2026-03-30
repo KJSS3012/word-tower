@@ -1,188 +1,95 @@
-# 🏗️ Word Tower
+# Word Tower
 
-**Jogo de palavras multijogador em tempo real com sistema de eliminação por timeout**
+![Version](https://img.shields.io/badge/version-2.0-2563eb)
 
-_Projeto desenvolvido para a disciplina de Programação I (Ciência da Computação - UFCG, Campina Grande)_
+Word Tower e um jogo multiplayer de palavras em tempo real.
 
----
+O projeto utiliza arquitetura modular com frontend em Vue 3 + TypeScript e backend em Node.js + TypeScript, com comunicacao via Socket.IO.
 
-## 🚀 Como Rodar a Aplicação
+## Visao Geral
 
-### 📋 Pré-requisitos
+- Foco atual: organizacao em camadas (domain, rules, application, infrastructure, ws, types)
+- Frontend: `front`
+- Backend em TypeScript: `back_2` (estrutura temporaria de pasta)
 
-- **Python 3.8+** ([Download](https://www.python.org/downloads/))
-- **Node.js 20+** ([Download](https://nodejs.org/))
+## Estrutura Do Projeto
 
-### 🛠️ Instalação
+- `back_2`: backend principal em Node.js + TypeScript
+- `front`: cliente web (Vue 3 + TypeScript)
+- `back`: backend legado em Python (mantido para referencia)
 
-#### Opção 1: Instalação Simples (pip global)
+## Requisitos
+
+- Node.js 20+
+- npm 10+
+
+## Como Executar
+
+1. Clone o repositorio.
 
 ```bash
-# 1. Clone o projeto
 git clone https://github.com/KJSS3012/word-tower.git
 cd word-tower
+```
 
-# 2. Instalar dependências Python
-cd back
-pip install -r requirements.txt
+2. Instale e execute o backend.
 
-# 3. Instalar dependências Node.js (novo terminal)
-cd ../front
+```bash
+cd back_2
 npm install
-```
-
-#### Opção 2: Instalação com Ambiente Virtual (Recomendado)
-
-```bash
-# 1. Clone o projeto
-git clone https://github.com/KJSS3012/word-tower.git
-cd word-tower
-
-# 2. Criar ambiente virtual
-cd back
-python -m venv venv
-
-# 3. Ativar ambiente virtual
-# Windows:
-venv\Scripts\activate
-# Linux/macOS:
-source venv/bin/activate
-
-# 4. Instalar dependências Python
-pip install -r requirements.txt
-
-# 5. Instalar dependências Node.js (novo terminal)
-cd ../front
-npm install
-```
-
-### ▶️ Executar
-
-**Terminal 1 - Backend:**
-
-```bash
-cd back
-python -m app.main
-```
-
-> Backend rodará em `http://localhost:8000`
-
-**Terminal 2 - Frontend:**
-
-```bash
-cd front
 npm run dev
 ```
 
-> Frontend rodará em `http://localhost:5173`
+3. Em outro terminal, instale e execute o frontend.
 
-### 🌐 Acessar
-
-Abra `http://localhost:5173` no navegador e divirta-se!
-
----
-
-## 🎮 Como Jogar
-
-### 🚪 Entrando no Jogo
-
-1. **Crie uma sala** ou **entre em uma existente** usando o código
-2. **Aguarde outros jogadores** (mínimo 2 para iniciar)
-3. **Host inicia o jogo** quando todos estiverem prontos
-
-### 🎯 Objetivo
-
-Formar uma "torre de palavras" onde cada palavra deve começar com a **última letra** da palavra anterior.
-
-### ⏰ Sistema de Tempo
-
-- **30 segundos** por turno (configurável)
-- **Timer visual** mostra tempo restante
-- **Eliminação automática** quando tempo esgota
-
-### 🏆 Vitória
-
-- **Último jogador ativo** vence a rodada
-- **Jogo reinicia** automaticamente para nova partida
-
----
-
-## 📝 Regras do Jogo
-
-### ✅ Palavra Válida
-
-- Deve começar com a **letra correta**
-- Deve ser uma **palavra real** (verificada no dicionário)
-- **Não pode repetir** palavras já usadas
-
-### ❌ Palavra Inválida
-
-- **Letra errada**: Eliminação imediata
-- **Palavra inexistente**: Eliminação imediata
-- **Palavra repetida**: Eliminação imediata
-
-### 🎲 Dificuldades
-
-| Dificuldade | Dicionário  | Próxima Letra     | Desafio |
-| ----------- | ----------- | ----------------- | ------- |
-| **Fácil**   | Sem acentos | Última letra      | ⭐      |
-| **Normal**  | Com acentos | Última letra      | ⭐⭐    |
-| **Caótico** | Com acentos | Posição aleatória | ⭐⭐⭐  |
-
----
-
-## 💻 Tecnologias
-
-### Backend
-
-- **Python 3.8+**: Linguagem principal
-- **Socket.IO**: Comunicação em tempo real
-- **uvicorn**: Servidor ASGI para WebSockets
-- **AsyncIO**: Programação assíncrona para timers
-
-### Frontend
-
-- **Vue 3**: Framework reativo moderno
-- **TypeScript**: Tipagem estática
-- **Pinia**: Gerenciamento de estado
-- **Socket.IO Client**: Comunicação real-time
-
-### Comunicação
-
-- **WebSocket**: Tempo real para gameplay
-- **JSON**: Formato de troca de dados
-
----
-
-## 📦 Dependências
-
-### Backend (Python)
-
-```txt
-uvicorn[standard]==0.24.0    # Servidor ASGI
-python-socketio[asyncio]==5.10.0    # Socket.IO server
+```bash
+cd front
+npm install
+npm run dev
 ```
 
-### Frontend (Node.js)
+4. Acesse a aplicacao.
 
-```json
-{
-  "vue": "^3.5.18",
-  "typescript": "latest",
-  "pinia": "^3.0.3",
-  "socket.io-client": "^4.8.1",
-  "vue-router": "^4.5.1"
-}
+```text
+http://localhost:5173
 ```
 
----
+## Portas Padrao
 
-## 🎓 Créditos
+- Frontend: `5173`
+- Backend: `3000`
 
-**Projeto Acadêmico**
+Para alterar o endpoint no frontend, configure `VITE_GAME_SERVER_URL`.
 
-- **Disciplina**: Programação I
-- **Instituição**: Universidade Federal de Campina Grande (UFCG)
-- **Curso**: Ciência da Computação
+## Regras Do Jogo
 
-**Word Tower** © 2025
+- Cada nova palavra deve respeitar a letra exigida pela rodada.
+- A palavra deve existir no dicionario da dificuldade ativa.
+- Palavras repetidas nao sao aceitas.
+
+## Dificuldades
+
+| Dificuldade | Dicionario  | Proxima Letra              |
+| ----------- | ----------- | -------------------------- |
+| easy        | sem acentos | ultima letra               |
+| normal      | com acentos | ultima letra               |
+| caotic      | com acentos | letra aleatoria da palavra |
+
+## Scripts Principais
+
+`back_2`
+
+- `npm run dev`: inicia servidor em desenvolvimento
+- `npm run build`: compila o projeto TypeScript
+
+`front`
+
+- `npm run dev`: inicia cliente em desenvolvimento
+- `npm run type-check`: valida tipagem
+- `npm run build`: gera build de producao
+
+## Contexto Academico
+
+Projeto academico desenvolvido para a disciplina de Programacao I (Ciencia da Computacao, UFCG).
+
+A versao 1.0, com backend em Python, foi o ponto inicial para a evolucao desta aplicacao.

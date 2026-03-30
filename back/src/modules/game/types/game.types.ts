@@ -1,0 +1,78 @@
+export type Difficulty = "caotic" | "normal" | "easy";
+
+export type Dataset = Record<Difficulty, Set<string>>;
+
+export enum GameStatus {
+  WAITING = "WAITING",
+  IN_PROGRESS = "IN_PROGRESS",
+  FINISHED = "FINISHED",
+}
+
+export type SubmitWordErrorReason =
+  | "GAME_NOT_FOUND"
+  | "NOT_PLAYER_TURN"
+  | "WORD_NOT_IN_DICTIONARY"
+  | "INVALID_REQUIRED_LETTER"
+  | "WORD_ALREADY_USED";
+
+export interface PlayerDTO {
+  id: string;
+  name: string;
+  socketId: string;
+  isActive: boolean;
+  isHost: boolean;
+}
+
+export interface GameSettings {
+  turnTimeSeconds: number;
+  wrongAnswerPenalty: number;
+  maxPlayersEnabled: boolean;
+  maxPlayers: number;
+}
+
+export interface GameSnapshot {
+  gameId: string;
+  difficulty: Difficulty;
+  status: GameStatus;
+  currentWord: string | null;
+  requiredLetter: string | null;
+  remainingTurnSeconds: number;
+  currentTurnIndex: number;
+  currentPlayerId: string | null;
+  winnerPlayerId: string | null;
+  settings: GameSettings;
+  players: PlayerDTO[];
+}
+
+export interface JoinGameResult {
+  success: boolean;
+  player?: PlayerDTO;
+  game?: GameSnapshot;
+  reason?: string;
+}
+
+export interface StartGameResult {
+  success: boolean;
+  game?: GameSnapshot;
+  reason?: string;
+}
+
+export interface SubmitWordResult {
+  success: boolean;
+  reason?: SubmitWordErrorReason;
+  game?: GameSnapshot;
+}
+
+export interface UpdateSettingsPayload {
+  turnTimeSeconds?: number;
+  difficulty?: Difficulty;
+  wrongAnswerPenalty?: number;
+  maxPlayersEnabled?: boolean;
+  maxPlayers?: number;
+}
+
+export interface UpdateSettingsResult {
+  success: boolean;
+  reason?: string;
+  game?: GameSnapshot;
+}
