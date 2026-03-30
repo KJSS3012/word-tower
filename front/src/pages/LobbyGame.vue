@@ -27,29 +27,31 @@ const startGame = () => {
 const startGameRoom = () => {
   const roomNameInput = document.getElementById('room_name') as HTMLInputElement | null;
   const playerNameInput = document.getElementById('player_name') as HTMLInputElement | null;
-  
+
   const roomName = roomNameInput ? roomNameInput.value.trim() : '';
   const playerName = playerNameInput ? playerNameInput.value.trim() : '';
-  
+
   if (!roomName) {
     roomNameInput?.focus();
     return;
   }
-  
+
   if (!playerName) {
     playerNameInput?.focus();
     return;
   }
-  
+
   // As configurações serão definidas pelo host no jogo
-  
+
   // Salvar o nome do jogador no localStorage para usar na próxima tela
   localStorage.setItem('pendingPlayerName', playerName);
-  
+
+  const roomId = roomName.toLowerCase();
+
   // Navegar para o jogo apenas com o ID da sala
-  router.push({ 
-    name: 'game', 
-    params: { gameId: roomName }
+  router.push({
+    name: 'game',
+    params: { gameId: roomId }
   });
 }
 </script>
